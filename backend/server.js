@@ -1,38 +1,46 @@
-import cors from 'cors';
 import express from 'express';
+import cors from 'cors';
 
 const app = express();
 
-// Nuclear CORS option - allow everything during development
-const corsOptions = {
-  origin: true,
-  credentials: true,
-  optionsSuccessStatus: 200
-};
+// 1. Global CORS middleware
+app.use((req, res, next) => {
+  const allowedOrigins = ['https://demofrontend-rose.vercel.app'];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
-// Apply CORS to all routes
-app.use(cors(corsOptions));
+// 2. Body parsers
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Special handler for preflight requests
-app.options('*', cors(corsOptions));
-
-// Your existing routes
+// 3. Routes
 app.post('/tts', (req, res) => {
-  // Set CORS headers manually as backup
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  // Manually set headers again as backup
+  res.header('Access-Control-Allow-Origin', 'https://demofrontend-rose.vercel.app');
   res.header('Access-Control-Allow-Credentials', 'true');
   
-  // Your existing TTS logic here
-  res.json({ message: "This will work now!" });
+  // Your TTS logic here
+  res.json({ success: true, message: "CORS is fixed!" });
 });
 
-// Same for STS endpoint
-app.post('/sts', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Your existing STS logic here
-  res.json({ message: "STS works too!" });
+// 4. Error handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
-app.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
