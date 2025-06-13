@@ -13,16 +13,15 @@ const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
 const app = express();
 
 // ——————————
-// CORS MIDDLEWARE
+// CORS SETUP
 // ——————————
 const allowedOrigins = [
   "https://aifrontend-zeta.vercel.app",
   "https://demofrontend-rose.vercel.app"
 ];
-
-app.use(cors({
+const corsOptions = {
   origin(origin, callback) {
-    // allow requests with no origin (e.g. curl, mobile apps)
+    // allow non-browser (postman, curl) requests
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
@@ -31,10 +30,13 @@ app.use(cors({
   },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+  optionsSuccessStatus: 200
+};
 
-// handle preflight for all routes
-app.options("*", cors());
+// Apply to all routes
+app.use(cors(corsOptions));
+// Preflight
+app.options("*", cors(corsOptions));
 
 // ——————————
 // BODY PARSING
@@ -107,7 +109,7 @@ app.get("/chat-history", (req, res) => {
 });
 
 // ——————————
-// LOCAL DEV LISTENER
+// LOCAL DEVELOPMENT
 // ——————————
 if (process.env.NODE_ENV !== "production") {
   const port = process.env.PORT || 3000;
@@ -117,6 +119,6 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ——————————
-// FOR VERCEL SERVERLESS
+// VERCEL ENTRYPOINT
 // ——————————
 export default app;
