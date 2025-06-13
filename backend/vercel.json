@@ -6,6 +6,4 @@
       "use": "@vercel/node"
     }
   ],
-  
-  ]
 }
