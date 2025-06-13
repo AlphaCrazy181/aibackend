@@ -15,7 +15,7 @@ const port = 3000;
 
 // ✅ Place CORS middleware BEFORE everything else
 app.use(cors({
-  origin: "https://aifrontend-zeta.vercel.app","https://demofrontend-rose.vercel.app", * // or "*" for testing
+  origin: "https://aifrontend-zeta.vercel.app","https://demofrontend-rose.vercel.app", // or "*" for testing
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
