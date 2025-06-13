@@ -1,36 +1,57 @@
-import { readFile } from "fs/promises";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { audioFileToBase64, readJsonTranscript } from "../utils/files.mjs";
+import dotenv from "dotenv";
+dotenv.config();
 
-// Convert ES module URL to file path
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const openAIApiKey = process.env.OPENAI_API_KEY;
+const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
 
-/**
- * Reads an audio file and returns it as a base64-encoded string.
- * @param {Object} params
- * @param {string} params.fileName - e.g., "audios/intro_0.wav"
- * @returns {Promise<string>} base64 encoded audio
- */
-async function audioFileToBase64({ fileName }) {
-  const fileBase = fileName.split("/").pop(); // Get just the filename
-  const fullPath = join(__dirname, "../audios", fileBase);
-  const data = await readFile(fullPath);
-  return Buffer.from(data).toString("base64");
+export async function sendDefaultMessages({ userMessage } = {}) {
+  if (!userMessage) {
+    return [
+      {
+        text: "Hey there... How was your day?",
+        audio: await audioFileToBase64({ fileName: "audios/intro_0.wav" }),
+        lipsync: await readJsonTranscript({ fileName: "audios/intro_0.json" }),
+        facialExpression: "smile",
+        animation: "TalkingOne",
+      },
+      {
+        text: "I'm Jack, your personal AI assistant. I'm here to help you with anything you need.",
+        audio: await audioFileToBase64({ fileName: "audios/intro_1.wav" }),
+        lipsync: await readJsonTranscript({ fileName: "audios/intro_1.json" }),
+        facialExpression: "smile",
+        animation: "TalkingTwo",
+      },
+    ];
+  }
+
+  if (!openAIApiKey || !elevenLabsApiKey) {
+    return [
+      {
+        text: "Please my friend, don't forget to add your API keys!",
+        audio: await audioFileToBase64({ fileName: "audios/api_0.wav" }),
+        lipsync: await readJsonTranscript({ fileName: "audios/api_0.json" }),
+        facialExpression: "angry",
+        animation: "TalkingThree",
+      },
+      {
+        text: "You don't want to ruin Jack with a crazy ChatGPT and ElevenLabs bill, right?",
+        audio: await audioFileToBase64({ fileName: "audios/api_1.wav" }),
+        lipsync: await readJsonTranscript({ fileName: "audios/api_1.json" }),
+        facialExpression: "smile",
+        animation: "Angry",
+      },
+    ];
+  }
+
+  // no defaults
+  return null;
 }
 
-/**
- * Reads a JSON transcript and returns it as a JavaScript object.
- * @param {Object} params
- * @param {string} params.fileName - e.g., "audios/intro_0.json"
- * @returns {Promise<Object>} parsed JSON
- */
-async function readJsonTranscript({ fileName }) {
-  const fileBase = fileName.split("/").pop();
-  const fullPath = join(__dirname, "../audios", fileBase);
-  const data = await readFile(fullPath, "utf-8");
-  return JSON.parse(data);
-}
-
-// ✅ Export both functions
-export { audioFileToBase64, readJsonTranscript };
+export const defaultResponse = [
+  {
+    text: "I'm sorry, there seems to be an error with my brain, or I didn't understand. Could you please repeat your question?",
+    facialExpression: "sad",
+    animation: "Idle",
+  },
+];
