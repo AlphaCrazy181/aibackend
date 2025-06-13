@@ -9,95 +9,106 @@ import * as voice from "./modules/elevenLabs.mjs";
 
 dotenv.config();
 
-const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
-
 const app = express();
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-// THIS PART SOLVES THE ISSUE
-app.use(cors({
-  origin: ["https://demofrontend-rose.vercel.app"],
-  methods: ["GET", "POST", "OPTIONS"],
-}));
-
 const port = process.env.PORT || 3000;
+const ELEVEN_API_KEY = process.env.ELEVEN_LABS_API_KEY;
 
-const chatHistory = [];
+// Define your allowed origin
+const allowedOrigins = ["https://demofrontend-rose.vercel.app"];
 
-app.get("/voices", async (req, res) => {
-  res.send(await voice.getVoices(elevenLabsApiKey));
+// CORS options
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+};
+
+// 1) Global JSON/body parsers
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// 2) CORS middleware
+app.use(cors(corsOptions));
+
+// 3) Preflight handler (short-circuit OPTIONS)
+app.options("*", cors(corsOptions), (_req, res) => {
+  // Immediately respond to preflight requests
+  res.sendStatus(200);
 });
 
-app.post("/tts", async (req, res) => {
-  const userMessageText = req.body.message;
-  const userEmotion = req.body.emotion;
-  const selectedVoiceId = req.body.voiceId;
+// In-memory chat history
+const chatHistory = [];
 
-  const defaultMessages = await sendDefaultMessages({ userMessage: userMessageText });
-  if (defaultMessages) {
-    res.send({ messages: defaultMessages });
-    return;
+// GET /voices
+app.get("/voices", async (_req, res) => {
+  const voices = await voice.getVoices(ELEVEN_API_KEY);
+  res.json(voices);
+});
+
+// POST /tts
+app.post("/tts", async (req, res) => {
+  const { message: userMessageText, emotion: userEmotion, voiceId: selectedVoiceId } = req.body;
+
+  // Short-circuit default messages
+  const defaults = await sendDefaultMessages({ userMessage: userMessageText });
+  if (defaults) {
+    return res.json({ messages: defaults });
   }
 
-  let openAImessages;
-  let analysisResult = null;
+  let openAImessages, analysisResult = null;
   try {
-    const aiResponse = await invokeOpenAIChain({
-      question: userMessageText,
-      emotion: userEmotion,
-    });
-    openAImessages = aiResponse.messages;
-    analysisResult = aiResponse.analysis;
-
+    const ai = await invokeOpenAIChain({ question: userMessageText, emotion: userEmotion });
+    openAImessages = ai.messages;
+    analysisResult = ai.analysis;
     chatHistory.push({ type: "user", text: userMessageText, analysis: analysisResult, emotion: userEmotion });
     chatHistory.push({ type: "ai", messages: openAImessages });
-  } catch (error) {
-    console.error("Error invoking OpenAI chain:", error);
+  } catch (err) {
+    console.error("OpenAI error:", err);
     openAImessages = defaultResponse;
     chatHistory.push({ type: "user", text: userMessageText, analysis: null, emotion: userEmotion });
     chatHistory.push({ type: "ai", messages: defaultResponse });
   }
 
-  const lipSyncedMessages = await lipSync({ messages: openAImessages, voiceId: selectedVoiceId });
-  res.send({ messages: lipSyncedMessages, analysis: analysisResult });
+  const lipSynced = await lipSync({ messages: openAImessages, voiceId: selectedVoiceId });
+  res.json({ messages: lipSynced, analysis: analysisResult });
 });
 
+// POST /sts
 app.post("/sts", async (req, res) => {
-  const base64Audio = req.body.audio;
-  const userEmotion = req.body.emotion;
-  const selectedVoiceId = req.body.voiceId;
-
+  const { audio: base64Audio, emotion: userEmotion, voiceId: selectedVoiceId } = req.body;
   const audioData = Buffer.from(base64Audio, "base64");
   const userMessageText = await convertAudioToText({ audioData });
 
-  let openAImessages;
-  let analysisResult = null;
+  let openAImessages, analysisResult = null;
   try {
-    const aiResponse = await invokeOpenAIChain({
-      question: userMessageText,
-      emotion: userEmotion,
-    });
-    openAImessages = aiResponse.messages;
-    analysisResult = aiResponse.analysis;
-
+    const ai = await invokeOpenAIChain({ question: userMessageText, emotion: userEmotion });
+    openAImessages = ai.messages;
+    analysisResult = ai.analysis;
     chatHistory.push({ type: "user", text: userMessageText, analysis: analysisResult, emotion: userEmotion });
     chatHistory.push({ type: "ai", messages: openAImessages });
-  } catch (error) {
-    console.error("Error invoking OpenAI chain:", error);
+  } catch (err) {
+    console.error("OpenAI error:", err);
     openAImessages = defaultResponse;
     chatHistory.push({ type: "user", text: userMessageText, analysis: null, emotion: userEmotion });
     chatHistory.push({ type: "ai", messages: defaultResponse });
   }
 
-  const lipSyncedMessages = await lipSync({ messages: openAImessages, voiceId: selectedVoiceId });
-  res.send({ messages: lipSyncedMessages, analysis: analysisResult, userMessageText });
+  const lipSynced = await lipSync({ messages: openAImessages, voiceId: selectedVoiceId });
+  res.json({ messages: lipSynced, analysis: analysisResult, userMessageText });
 });
 
-app.get("/chat-history", (req, res) => {
-  res.send({ history: chatHistory });
+// GET /chat-history
+app.get("/chat-history", (_req, res) => {
+  res.json({ history: chatHistory });
 });
 
+// Start server
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server listening on port ${port}`);
 });
