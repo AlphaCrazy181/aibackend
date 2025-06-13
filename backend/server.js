@@ -1,5 +1,4 @@
 // server.js
-import serverless from "serverless-http";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -20,7 +19,7 @@ const allowedOrigins = [
 ];
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true);             // allow non-browser clients
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
@@ -30,7 +29,7 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 app.use(cors(corsOptions));
-// ensure preflight is handled by CORS:
+// ensure preflight is handled by CORS
 app.options("*", cors(corsOptions));
 
 // 2️⃣ Body parsers
@@ -132,5 +131,11 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Instead of app.listen(), export a serverless handler:
-export const handler = serverless(app);
+// If running locally, listen on PORT
+if (process.env.NODE_ENV !== "production") {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => console.log(`🚀 Server listening on port ${port}`));
+}
+
+// For Vercel: export the Express app as the default export
+export default app;
