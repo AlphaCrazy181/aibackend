@@ -8,68 +8,33 @@ import { convertAudioToText } from "./modules/whisper.mjs";
 import * as voice from "./modules/elevenLabs.mjs";
 
 dotenv.config();
-
 const app = express();
 const port = process.env.PORT || 3000;
 const ELEVEN_API_KEY = process.env.ELEVEN_LABS_API_KEY;
 
-// Define your allowed origins
+// 1️⃣ Apply CORS before anything else
 const allowedOrigins = [
   "https://demofrontend-rose.vercel.app",
-  "http://localhost:3000" // Add localhost for development
+  "http://localhost:3000"
 ];
 
-// Enhanced CORS options
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin '${origin}' not allowed by CORS`));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);           // allow non-browser clients
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept"
-  ],
+  methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   credentials: true,
-  preflightContinue: false,
   optionsSuccessStatus: 204
-};
+}));
 
-// Apply CORS middleware to all routes
-app.use(cors(corsOptions));
-
-// Handle preflight requests
-app.options("*", cors(corsOptions));
-
-// Global middleware
+// 2️⃣ Body parsers
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// Add CORS headers to all responses
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, OPTIONS, PUT, DELETE"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "X-Requested-With, Content-Type, Authorization"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  next();
-});
 
 // In-memory chat history
 const chatHistory = [];
@@ -122,7 +87,6 @@ app.post("/tts", async (req, res) => {
 app.post("/sts", async (req, res) => {
   try {
     const { audio: base64Audio, emotion: userEmotion, voiceId: selectedVoiceId } = req.body;
-    
     if (!base64Audio) {
       return res.status(400).json({ error: "No audio data provided" });
     }
@@ -160,7 +124,7 @@ app.get("/chat-history", (_req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  if (err.message.includes("CORS")) {
+  if (err.message && err.message.includes("CORS")) {
     res.status(403).json({ error: err.message });
   } else {
     res.status(500).json({ error: "Something broke!" });
