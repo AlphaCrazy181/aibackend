@@ -1,23 +1,34 @@
-import cors from "cors"
-import dotenv from "dotenv"
-import express from "express"
-import { invokeOpenAIChain } from "./modules/openAI.mjs"
-import { lipSync } from "./modules/lip-sync.mjs"
-import { sendDefaultMessages, defaultResponse } from "./modules/defaultMessages.mjs"
-import { convertAudioToText } from "./modules/whisper.mjs"
-import * as voice from "./modules/elevenLabs.mjs"
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import { invokeOpenAIChain } from "./modules/openAI.mjs";
+import { lipSync } from "./modules/lip-sync.mjs";
+import { sendDefaultMessages, defaultResponse } from "./modules/defaultMessages.mjs";
+import { convertAudioToText } from "./modules/whisper.mjs";
+import * as voice from "./modules/elevenLabs.mjs";
 
-dotenv.config()
+dotenv.config();
 
-const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY
+const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY;
+const app = express();
+const port = 3000;
 
-const app = express()
-app.use(express.json({ limit: "50mb" }))
-app.use(express.urlencoded({ limit: "50mb", extended: true }))
-app.use(cors())
-const port = 3000
+// ✅ Place CORS middleware BEFORE everything else
+app.use(cors({
+  origin: "https://aifrontend-zeta.vercel.app", // or "*" for testing
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
-const chatHistory = []
+// ✅ Explicitly handle OPTIONS preflight requests
+app.options("*", cors());
+
+// Body parsing middleware
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// 👇 Your endpoints remain the same...
+const chatHistory = [];
 
 app.get("/voices", async (req, res) => {
   res.send(await voice.getVoices(elevenLabsApiKey))
