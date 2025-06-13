@@ -1,36 +1,37 @@
+// server.js
+import serverless from "serverless-http";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+
 import { invokeOpenAIChain } from "./modules/openAI.mjs";
-import { lipSync } from "./modules/lip-sync.mjs";
+import { lipSync }           from "./modules/lip-sync.mjs";
 import { sendDefaultMessages, defaultResponse } from "./modules/defaultMessages.mjs";
 import { convertAudioToText } from "./modules/whisper.mjs";
-import * as voice from "./modules/elevenLabs.mjs";
+import * as voice             from "./modules/elevenLabs.mjs";
 
 dotenv.config();
 const app = express();
-const port = process.env.PORT || 3000;
-const ELEVEN_API_KEY = process.env.ELEVEN_LABS_API_KEY;
 
-// 1️⃣ Apply CORS before anything else
+// 1️⃣ CORS as first middleware
 const allowedOrigins = [
   "https://demofrontend-rose.vercel.app",
   "http://localhost:3000"
 ];
-
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);           // allow non-browser clients
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
-  methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  methods: ["GET","POST","OPTIONS","PUT","DELETE","PATCH"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Accept"],
   credentials: true,
   optionsSuccessStatus: 204
-}));
+};
+app.use(cors(corsOptions));
+// ensure preflight is handled by CORS:
+app.options("*", cors(corsOptions));
 
 // 2️⃣ Body parsers
 app.use(express.json({ limit: "50mb" }));
@@ -42,7 +43,7 @@ const chatHistory = [];
 // GET /voices
 app.get("/voices", async (_req, res) => {
   try {
-    const voices = await voice.getVoices(ELEVEN_API_KEY);
+    const voices = await voice.getVoices(process.env.ELEVEN_LABS_API_KEY);
     res.json(voices);
   } catch (error) {
     console.error("Error fetching voices:", error);
@@ -121,7 +122,7 @@ app.get("/chat-history", (_req, res) => {
   res.json({ history: chatHistory });
 });
 
-// Error handling middleware
+// Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   if (err.message && err.message.includes("CORS")) {
@@ -131,7 +132,5 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+// Instead of app.listen(), export a serverless handler:
+export const handler = serverless(app);
