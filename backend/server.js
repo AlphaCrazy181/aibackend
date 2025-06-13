@@ -15,19 +15,10 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Explicitly allow your frontend URL here
-const allowedOrigins = ["https://demofrontend-rose.vercel.app"];
-
+// THIS PART SOLVES THE ISSUE
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: ["https://demofrontend-rose.vercel.app"],
   methods: ["GET", "POST", "OPTIONS"],
-  credentials: true,
 }));
 
 const port = process.env.PORT || 3000;
